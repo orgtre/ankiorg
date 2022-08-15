@@ -21,10 +21,11 @@
 (require 'json)
 (require 'cl-lib)
 (require 'sqlite3)
+(require 'anki-editor)
 ;; make sure the correct version of anki-editor is loaded
-(load-file 
- (expand-file-name "anki-editor.el"
-		   (file-name-directory (buffer-file-name))))
+;; (load-file 
+;;  (expand-file-name "anki-editor.el"
+;; 		   (file-name-directory (buffer-file-name))))
 
 (defgroup ankiorg nil
   "Customizations for ankiorg."
@@ -39,7 +40,7 @@ Note headings are created from the contents of the first field."
   :type 'int
   :group 'ankiorg)
 
-(defcustom ankiorg-media-directory "./img/"
+(defcustom ankiorg-media-directory nil
   "Directory where media files retreived from Anki should be stored."
   :type 'string
   :group 'ankiorg)
@@ -48,11 +49,14 @@ Note headings are created from the contents of the first field."
   "If non-nil elisp bindings to the sqlite3 C API will be used to directly interact with the Anki database; this requires that Anki is not running. Otherwise AnkiConnect's HTTP API is used via curl, which requires that Anki is running.")
 ;; #TODO add auto option
 
-(defcustom anki-editor-sql-database "~/main/projects/AnkiOrg/collectiontest.anki2"
-  "Path to the Anki sqlite database. Please back it up before setting this.")
+(defcustom anki-editor-sql-database nil
+  "Path to the Anki sqlite database. Please back it up before setting this."
+  :type 'string)
 
 (defcustom anki-editor-new-from-anki-heading "new-from-anki"
-  "Name of the heading under which new cards from Anki should be inserted.")
+  "Name of the heading under which new cards from Anki should be inserted."
+  :type 'string)
+
 
 
 ;;; Main command to pull notes from Anki to org
