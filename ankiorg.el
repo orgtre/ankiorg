@@ -142,7 +142,7 @@ This both deletes notes not existing in Anki (unless they have no note-id assign
   (setq anki-editor-ids-in-anki-deck
 	(if anki-editor-use-sql-api
 	    (anki-editor-sql-get-ids-in-deck deck)
-	  (anki-editor--anki-connect-invoke-result "findNotes" `(("query" . ,(concat "deck:" (replace-regexp-in-string " " "_" deck)))))))
+	  (anki-editor-api-call-result 'findNotes :query (concat "deck:" (replace-regexp-in-string " " "_" deck)))))
   ;; Replaces spaces in deck name with "_" (read as wildcard character), since otherwise currently not working due to error in Anki/AnkiConnect.
 
   ;; List of all note-id's in Anki
@@ -150,7 +150,7 @@ This both deletes notes not existing in Anki (unless they have no note-id assign
   (setq anki-editor-ids-in-anki
 	(if anki-editor-use-sql-api
 	    (anki-editor-sql-get-ids-in-anki)
-	  (anki-editor--anki-connect-invoke-result "findNotes" '(("query" . "deck:*")))))
+	  (anki-editor-api-call-result 'findNotes :query "deck:*")))
   ;; #TODO does this list get too large? (garbage-collect)
   ;; nah, should easily be able to handle whole Anki sql database in memory
 
@@ -790,9 +790,9 @@ If DECK is given it will be used for the deck value, otherwise it is nil."
   
   ;; request notes info from AnkiConnect
   (message "Getting %d notes from Anki..." (length note-ids))
-  (let ((notes-raw (unless (not note-ids) (anki-editor--anki-connect-invoke-result "notesInfo" `(("notes" . ,note-ids)))))
+  (let ((notes-raw (unless (not note-ids) (anki-editor-api-call-result 'notesInfo :notes note-ids)))
 	(notes))
-
+    
     ;; get values out of response and store them in properly structured alist
     (dolist (note-raw notes-raw notes)
       
