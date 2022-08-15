@@ -31,8 +31,9 @@
   "Customizations for ankiorg."
   :group 'anki-editor)
 
-(defcustom ankiorg-notes-ask-confirmation t
-  "If non-nil the command `ankiorg' will display a summary of what it thinks it should do and ask for confirmation before taking any action.")
+(defcustom ankiorg-pull-notes-ask-confirmation t
+  "If non-nil the command `ankiorg' will display a summary of what it thinks it should do and ask for confirmation before taking any action."
+  :type 'boolean)
 
 (defcustom ankiorg-truncate-headings-at 60
   "Character at which to truncate when creating note headings.
@@ -46,11 +47,13 @@ Note headings are created from the contents of the first field."
   :group 'ankiorg)
 
 (defcustom anki-editor-use-sql-api t
-  "If non-nil elisp bindings to the sqlite3 C API will be used to directly interact with the Anki database; this requires that Anki is not running. Otherwise AnkiConnect's HTTP API is used via curl, which requires that Anki is running.")
+  "If non-nil elisp bindings to the sqlite3 C API will be used to directly interact with the Anki database; this requires that Anki is not running. Otherwise AnkiConnect's HTTP API is used via curl, which requires that Anki is running."
+  :type 'boolean)
 ;; #TODO add auto option
 
 (defcustom anki-editor-sql-database nil
-  "Path to the Anki sqlite database. Please back it up before setting this."
+  "Path to the Anki sqlite database.
+Please back it up before setting this or even better set it to a recent copy."
   :type 'string)
 
 (defcustom anki-editor-new-from-anki-heading "new-from-anki"
@@ -62,7 +65,8 @@ Note headings are created from the contents of the first field."
 ;;; Main command to pull notes from Anki to org
 
 
-(defun ankiorg-notes (&optional deck scope)
+;;;###autoload
+(defun ankiorg-pull-notes (&optional deck scope)
   "Update notes in the org representation of a DECK by pulling notes from Anki. 
 This both deletes notes not existing in Anki (unless they have no note-id assigned yet), creates new entries for notes existing only in Anki, and updates notes already in org using the version in Anki. SCOPE determines where to look for decks and notes; it is as in `org-map-entries', defaulting to current buffer respecting restrictions."
 
@@ -197,7 +201,7 @@ This both deletes notes not existing in Anki (unless they have no note-id assign
 				 (length anki-editor-ids-deck-created)
 				 (length anki-editor-ids-deck-anki-org))))
 
-    (if ankiorg-notes-ask-confirmation
+    (if ankiorg-pull-notes-ask-confirmation
 	(when (not (yes-or-no-p (concat summary-message "\nContinue? ")))
 	  (signal 'quit nil))
       (message summary-message)))
@@ -900,6 +904,7 @@ Bad patterns are matched and replaced using `anki-editor-anki-replacements'. Tak
 
 ;;; Tests and misc:
 
+;;;###autoload
 (defun ankiorg-buffer-get-media-files ()
   "Copies files linked in buffer from the Anki media folder.
 The destination is controlled by `ankiorg-media-directory'."
@@ -952,7 +957,8 @@ The destination is controlled by `ankiorg-media-directory'."
 
 
 
-(defun ankiorg-tags (&optional scope match)
+;;;###autoload
+(defun ankiorg-pull-tags (&optional scope match)
   "Pull tags from Anki for org notes from headings that match MATCH within SCOPE.
 
 The default search condition `&ANKI_NOTE_TYPE<>\"\"' will always
@@ -1002,7 +1008,7 @@ of that heading."
                                 (* 100 progress))
                        (anki-editor--clear-failure-reason)
                        (condition-case-unless-debug err
-                           (ankiorg-tags-sub (anki-editor-note-at-point))
+                           (ankiorg-pull-tags-sub (anki-editor-note-at-point))
                          (error (cl-incf failed)
                                 (anki-editor--set-failure-reason (error-message-string err))))
                        ;; free marker
@@ -1019,8 +1025,8 @@ of that heading."
              finally do (setq anki-editor--note-markers nil))))
 
 
-(defun ankiorg-tags-sub (note)
-  "Does the main work of `ankiorg-tags'."
+(defun ankiorg-pull-tags-sub (note)
+  "Does the main work of `ankiorg-pull-tags'."
   (let* ((oldnote
 	  (car
 	   (cdr
