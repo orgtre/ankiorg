@@ -53,7 +53,8 @@ Note headings are created from the contents of the first field."
 
 (defcustom anki-editor-sql-database nil
   "Path to the Anki sqlite database.
-Please back it up before setting this or even better set it to a recent copy."
+Please back it up before setting this or even better set it to a recent copy.
+Currently only absolute paths are supported."
   :type 'string)
 
 (defcustom anki-editor-new-from-anki-heading "new-from-anki"
