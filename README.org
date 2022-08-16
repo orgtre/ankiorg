@@ -11,6 +11,8 @@ Since I started working on this, [[https://github.com/eyeinsky/org-anki][org-ank
 
 First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], and [[https://pandoc.org][pandoc]]. Make sure pandoc is in the path used by Emacs. Depending on what interface to Anki you want to use, you then need to install a) [[https://github.com/FooSoft/anki-connect][Anki-Connect]] or b) [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]]. 
 
+/Note: Not all versions of Anki/Anki-Connect may work. Things are only known to work with version Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.45][2.1.45]] and Anki-Connect version 22.7.14.0. Some newer versions of Anki may not work with all functions of the sqlite3 interface (TODO)./
+
 Next, you need my fork of anki-editor, [[https://github.com/orgtre/anki-editor][orgtre/anki-editor]]. The difference to the original [[https://github.com/louietan/anki-editor][louietan/anki-editor]] is that I merged the develop branch and made a few minor adjustments (e.g. to allow a more flexible note structure).
 
 Finally, you should now have all dependencies and can install this package in whatever way you like.
@@ -32,7 +34,7 @@ I use the following to install this package and the necessary Emacs packages wit
   ankiorg-buffer-get-media-files
   ankiorg-pull-tags
   :custom
-  (anki-editor-sql-database
+  (ankiorg-sql-database
    "my-path-to/collection.anki2")
   (ankiorg-media-directory
    "my-path-to/img"))
@@ -43,7 +45,7 @@ I use the following to install this package and the necessary Emacs packages wit
 
 From an org buffer, run the command =ankiorg-pull-notes= and select the deck you want to pull. (TODO: Write function to pull all decks.) The org representations of the Anki notes will be inserted into the buffer. Next run command =ankiorg-buffer-get-media-files= from the same buffer to get the media files linked in the buffer from Anki and save them to your =ankiorg-media-directory=. (TODO: Make this one call.)
 
-If using the SQL interface, it is strongly recommended that you work with a (recent) copy of your Anki SQL database, whose path needs to be set in =anki-editor-sql-database=. Anki and Anki-Connect need to be running when using the Anki-Connect interface, and (for now) also when retrieving media files. (TODO: Allow retrieving media files via the SQL interface too.) Variable =anki-editor-use-sql-api= controls which interface is used for retrieving notes. (TODO: Write a detailed usage example.)
+If using the SQL interface, it is strongly recommended that you work with a (recent) copy of your Anki SQL database, whose path needs to be set in =ankiorg-sql-database=. Anki and Anki-Connect need to be running when using the Anki-Connect interface, and (for now) also when retrieving media files. (TODO: Allow retrieving media files via the SQL interface too.) Variable =ankiorg-use-sql-api= controls which interface is used for retrieving notes. (TODO: Write a detailed usage example.)
 
 
 ** Limitations and known issues
