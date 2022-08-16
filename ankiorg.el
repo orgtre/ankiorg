@@ -86,7 +86,7 @@ Note headings are created from the contents of the first field."
   :type 'int
   :group 'ankiorg)
 
-(defcustom anki-editor-new-from-anki-heading "new-from-anki"
+(defcustom ankiorg-new-from-anki-heading "new-from-anki"
   "Name of the org heading under which new cards from Anki should be inserted."
   :type 'string
   :group 'ankiorg)
@@ -119,10 +119,10 @@ SCOPE determines where to look for decks and notes; it is as in
 	   "Choose a deck: "
 	   (cons "Show all decks in Anki..."
 		 (sort
-		  (anki-editor-org-deck-names scope) #'string-lessp))))
+		  (ankiorg-org-deck-names scope) #'string-lessp))))
     (when (equal deck "Show all decks in Anki...")
       (if ankiorg-use-sql-api
-	  (setq deck (anki-editor-sql-pick-deck))
+	  (setq deck (ankiorg-sql-pick-deck))
 	(message "Fetching decks...")
 	(setq deck
 	      (completing-read
@@ -163,7 +163,7 @@ SCOPE determines where to look for decks and notes; it is as in
   ;; To distinguish these cases we need the following lists:
   
   ;; List of note-id's of notes within deck and scope in org
-  (setq anki-editor-ids-in-org-deck
+  (setq ankiorg-ids-in-org-deck
 	(remove
 	 nil
 	 (anki-editor-map-note-entries
@@ -176,7 +176,7 @@ SCOPE determines where to look for decks and notes; it is as in
 	  scope)))
 
   ;; List of note-id's of all notes within scope in org
-  (setq anki-editor-ids-in-org
+  (setq ankiorg-ids-in-org
 	(remove
 	 nil
 	 (anki-editor-map-note-entries
@@ -190,9 +190,9 @@ SCOPE determines where to look for decks and notes; it is as in
 
   ;; List of note-id's of notes within deck in Anki
   (message "Getting list of note IDs in deck %s from Anki..." deck)
-  (setq anki-editor-ids-in-anki-deck
+  (setq ankiorg-ids-in-anki-deck
 	(if ankiorg-use-sql-api
-	    (anki-editor-sql-get-ids-in-deck deck)
+	    (ankiorg-sql-get-ids-in-deck deck)
 	  (anki-editor-api-call-result
 	   'findNotes
 	   :query (concat "deck:" (replace-regexp-in-string " " "_" deck)))))
@@ -201,9 +201,9 @@ SCOPE determines where to look for decks and notes; it is as in
 
   ;; List of all note-id's in Anki
   (message "Getting list of all note IDs from Anki...")
-  (setq anki-editor-ids-in-anki
+  (setq ankiorg-ids-in-anki
 	(if ankiorg-use-sql-api
-	    (anki-editor-sql-get-ids-in-anki)
+	    (ankiorg-sql-get-ids-in-anki)
 	  (anki-editor-api-call-result
 	   'findNotes
 	   :query "deck:*")))
@@ -214,23 +214,23 @@ SCOPE determines where to look for decks and notes; it is as in
   ;; Some warnings:
   
   ;; Warn if duplicate note-id's in org (within deck and scope)
-  (unless (equal (length anki-editor-ids-in-org-deck)
+  (unless (equal (length ankiorg-ids-in-org-deck)
 		 (length (cl-remove-duplicates
-			  anki-editor-ids-in-org-deck)))
+			  ankiorg-ids-in-org-deck)))
     (display-warning
-     'anki-editor
+     'ankiorg
      (concat "Duplicate Anki note IDs detected in org. "
 	     "Only the first one in scope will be updated."))
-    (delete-dups anki-editor-ids-in-org-deck)) ; delete duplicate id's
+    (delete-dups ankiorg-ids-in-org-deck)) ; delete duplicate id's
   
   ;; Warn if notes with matching deck but no note-id in scope in org
-  (unless (equal (length anki-editor-ids-in-org-deck)
+  (unless (equal (length ankiorg-ids-in-org-deck)
 		 (length (anki-editor-map-note-entries
 			  nil
 			  (concat anki-editor-prop-deck "=" "\"" deck "\"")
 			  scope)))
     (display-warning
-     'anki-editor
+     'ankiorg
      (concat "Org notes without note ID found for deck. "
 	     "These have likely been created in org but not synced to Anki yet;"
 	     " they will be ignored.")))
@@ -239,42 +239,42 @@ SCOPE determines where to look for decks and notes; it is as in
   ;; Now use set operations to get lists of id's for each case we distinguish:
   
   ;; a) note id's which are in deck in org but not in deck in Anki
-  (setq anki-editor-ids-deck-org-not-anki
-	(cl-set-difference anki-editor-ids-in-org-deck
-			   anki-editor-ids-in-anki-deck))
+  (setq ankiorg-ids-deck-org-not-anki
+	(cl-set-difference ankiorg-ids-in-org-deck
+			   ankiorg-ids-in-anki-deck))
   ;; a1) if in Anki but another deck, assume user changed away from deck in Anki
-  (setq anki-editor-ids-deck-changed-away
-	(cl-intersection anki-editor-ids-deck-org-not-anki
-			 anki-editor-ids-in-anki))
+  (setq ankiorg-ids-deck-changed-away
+	(cl-intersection ankiorg-ids-deck-org-not-anki
+			 ankiorg-ids-in-anki))
   ;; a2) if not in Anki, then assume the note was deleted in Anki
-  (setq anki-editor-ids-deck-deleted
-	(cl-set-difference anki-editor-ids-deck-org-not-anki
-			   anki-editor-ids-in-anki))
+  (setq ankiorg-ids-deck-deleted
+	(cl-set-difference ankiorg-ids-deck-org-not-anki
+			   ankiorg-ids-in-anki))
   
   ;; b) note id's which are in deck in Anki but not in deck in org
-  (setq anki-editor-ids-deck-anki-not-org
-	(cl-set-difference anki-editor-ids-in-anki-deck
-			   anki-editor-ids-in-org-deck))
+  (setq ankiorg-ids-deck-anki-not-org
+	(cl-set-difference ankiorg-ids-in-anki-deck
+			   ankiorg-ids-in-org-deck))
   ;; b1) if in org but another deck, assume user changed to the deck in Anki
-  (setq anki-editor-ids-deck-changed-to
-	(cl-intersection anki-editor-ids-deck-anki-not-org
-			 anki-editor-ids-in-org))
+  (setq ankiorg-ids-deck-changed-to
+	(cl-intersection ankiorg-ids-deck-anki-not-org
+			 ankiorg-ids-in-org))
   ;; b2) if not in org, then assume the note was created in Anki
-  (setq anki-editor-ids-deck-created
-	(cl-set-difference anki-editor-ids-deck-anki-not-org
-			   anki-editor-ids-in-org))
+  (setq ankiorg-ids-deck-created
+	(cl-set-difference ankiorg-ids-deck-anki-not-org
+			   ankiorg-ids-in-org))
 
   ;; c) note id's which are in deck in Anki and in deck in org
-  (setq anki-editor-ids-deck-anki-org
-	(cl-intersection anki-editor-ids-in-anki-deck
-			 anki-editor-ids-in-org-deck))
+  (setq ankiorg-ids-deck-anki-org
+	(cl-intersection ankiorg-ids-in-anki-deck
+			 ankiorg-ids-in-org-deck))
 
 
   ;; combined list of id's to be updated
-  (setq anki-editor-ids-to-update
-	(append anki-editor-ids-deck-changed-away
-		anki-editor-ids-deck-changed-to
-		anki-editor-ids-deck-anki-org))
+  (setq ankiorg-ids-to-update
+	(append ankiorg-ids-deck-changed-away
+		ankiorg-ids-deck-changed-to
+		ankiorg-ids-deck-anki-org))
 
   
   ;; Display summary of what will be done and optionally ask for confirmation
@@ -289,11 +289,11 @@ SCOPE determines where to look for decks and notes; it is as in
 	   "%d notes created -- to be created in org.\n"
 	   "%d notes unchanged in the above ways -- to be updated in org.\n")
 	  deck
-	  (length anki-editor-ids-deck-changed-away)
-	  (length anki-editor-ids-deck-deleted)
-	  (length anki-editor-ids-deck-changed-to)
-	  (length anki-editor-ids-deck-created)
-	  (length anki-editor-ids-deck-anki-org))))
+	  (length ankiorg-ids-deck-changed-away)
+	  (length ankiorg-ids-deck-deleted)
+	  (length ankiorg-ids-deck-changed-to)
+	  (length ankiorg-ids-deck-created)
+	  (length ankiorg-ids-deck-anki-org))))
 
     (if ankiorg-pull-notes-ask-confirmation
 	(when (not (yes-or-no-p (concat summary-message "\nContinue? ")))
@@ -303,13 +303,13 @@ SCOPE determines where to look for decks and notes; it is as in
   
   ;; Call functions to delete, create, and update notes
   
-  (anki-editor-delete-org-notes anki-editor-ids-deck-deleted scope)
-  (anki-editor-create-org-notes anki-editor-ids-deck-created deck)
-  (anki-editor-update-org-notes anki-editor-ids-to-update scope))
+  (ankiorg-delete-org-notes ankiorg-ids-deck-deleted scope)
+  (ankiorg-create-org-notes ankiorg-ids-deck-created deck)
+  (ankiorg-update-org-notes ankiorg-ids-to-update scope))
 
 
 
-(defun anki-editor-org-deck-names (&optional scope)
+(defun ankiorg-org-deck-names (&optional scope)
   "Get all deck names occuring among anki-editor org notes.
 Simple wrapper to `org-map-entries'. SCOPE defaults to current buffer respecting
 restrictions."
@@ -324,11 +324,11 @@ restrictions."
 
 ;; ** Delete notes matching note-ids from org
 
-(defun anki-editor-delete-org-notes (note-ids &optional scope)
+(defun ankiorg-delete-org-notes (note-ids &optional scope)
   "Kill the org notes with note-id in list NOTE-IDS.
 SCOPE is passed on to `org-map-entries'."
   ;; #TODO better delete or archieve than kill?
-  ;; #TODO allow users to set anki-editor-note-remove-action?
+  ;; #TODO allow users to set ankiorg-note-remove-action?
   ;; if several matching entries, all will be removed
   ;; #TODO org-mark-subtree sets the mark which is not good
   ;;       see set-mark docstring
@@ -353,12 +353,12 @@ SCOPE is passed on to `org-map-entries'."
 
 ;; ** Create notes with note-ids in org from Anki
 
-(defun anki-editor-create-org-notes (note-ids &optional deck)
+(defun ankiorg-create-org-notes (note-ids &optional deck)
   "Create org notes corresponding to Anki notes with note-id in list NOTE-IDS.
-DECK is passed on to `anki-editor-get-convert-notes-from-anki'."
+DECK is passed on to `ankiorg-get-convert-notes-from-anki'."
   
   (setq notes
-	(anki-editor-get-convert-notes-from-anki
+	(ankiorg-get-convert-notes-from-anki
 	 note-ids deck))
 
   (setq number-of-notes
@@ -367,33 +367,33 @@ DECK is passed on to `anki-editor-get-convert-notes-from-anki'."
   (let ((i 1))
     (dolist (note notes)
       (message "Creating org note %d/%d from Anki." i number-of-notes)
-      (anki-editor--create-org-note note)
+      (ankiorg--create-org-note note)
       (setq i (1+ i))))
   
   (message "Done creating %d new org notes from Anki." number-of-notes))
 
 
-(defun anki-editor--create-org-note (note)
+(defun ankiorg--create-org-note (note)
   "Create the org note corresponding to alist NOTE using data from it."
 
   (save-excursion
     
-    (anki-editor--create-goto-new-from-anki-heading)
+    (ankiorg--create-goto-new-from-anki-heading)
     ;; #TODO or prefix: '(4)?
-    (anki-editor--insert-note-from-alist note nil)))
+    (ankiorg--insert-note-from-alist note nil)))
 
 
-(defun anki-editor--create-goto-new-from-anki-heading ()
-  "Create and/or go to the `anki-editor-new-from-anki-heading'.
+(defun ankiorg--create-goto-new-from-anki-heading ()
+  "Create and/or go to the `ankiorg-new-from-anki-heading'.
 This is the heading under which new notes from Anki should be created.
-Looks for/inserts `anki-editor-new-from-anki-heading' in current buffer only;
+Looks for/inserts `ankiorg-new-from-anki-heading' in current buffer only;
 change this function to get another behavior."
 
   ;; #TODO deck and property inheritance?
   (beginning-of-buffer)
   
   (unless (re-search-forward
-	   (concat "[\\\\*]? " anki-editor-new-from-anki-heading) nil "end")
+	   (concat "[\\\\*]? " ankiorg-new-from-anki-heading) nil "end")
     (end-of-buffer)
     ;;(beginning-of-buffer)
     ;;(goto-char (org-entry-beginning-position))
@@ -401,10 +401,10 @@ change this function to get another behavior."
     ;; want to use org-insert-heading so that its hook is run
     ;;(org-insert-heading)
     (org-insert-heading nil nil t)
-    (insert anki-editor-new-from-anki-heading)))
+    (insert ankiorg-new-from-anki-heading)))
 
 
-(defun anki-editor--insert-note-from-alist (note prefix)
+(defun ankiorg--insert-note-from-alist (note prefix)
   "Insert an org-note from alist NOTE as a subtree to the heading at point.
 Where the subtree is created depends on PREFIX."
 
@@ -458,12 +458,12 @@ Where the subtree is created depends on PREFIX."
     ;; #TODO need to skip property drawers etc. like in better org return
     ;; before inserting contents
     ;; maybe can look at how org-capture does things too
-    ;; #TODO use anki-editor-org-step-into-entry for now
+    ;; #TODO use ankiorg-org-step-into-entry for now
 
     (if (equal (length fields) 1)
 	(save-excursion
 	  (let ((field (nth 0 fields)))
-	    (anki-editor-org-step-into-entry)
+	    (ankiorg-org-step-into-entry)
 	    (insert (cdr field))))
 
       (progn
@@ -473,7 +473,7 @@ Where the subtree is created depends on PREFIX."
 		 (equal (length fields) 2))
 	    (save-excursion
 	      (let ((field (nth 0 fields)))
-		(anki-editor-org-step-into-entry)
+		(ankiorg-org-step-into-entry)
 		(insert (cdr field)))
 	      (setq fields (cdr fields))))
 	
@@ -482,14 +482,14 @@ Where the subtree is created depends on PREFIX."
 	    (org-insert-heading-respect-content)
 	    (org-do-demote)
 	    (insert (car field))
-	    (anki-editor-org-step-into-entry)
+	    (ankiorg-org-step-into-entry)
 	    (insert (cdr field))
 	    ))))
     
     ))
 
 
-(defun anki-editor-org-step-into-entry ()
+(defun ankiorg-org-step-into-entry ()
   "Move from heading to position after org entry content.
 Makes sure content is inserted after drawers and planning."
   ;; Taken from John Kitchin's blog (2017-04-09) "A better return in org-mode"
@@ -520,31 +520,31 @@ Makes sure content is inserted after drawers and planning."
 
 ;; ** Update notes with note-ids in org from Anki
 
-(defun anki-editor-update-org-notes (note-ids &optional scope)
+(defun ankiorg-update-org-notes (note-ids &optional scope)
   "Update the org notes with note-id in list NOTE-IDS with data from Anki.
 Searches for corresponding org notes in SCOPE."
-  (setq notes (anki-editor-get-convert-notes-from-anki note-ids))
+  (setq notes (ankiorg-get-convert-notes-from-anki note-ids))
   (setq number-of-notes (length notes))
   
   (let ((i 1))
     (dolist (note notes)
       (message "Updating org note %d/%d from Anki." i number-of-notes)
-      (anki-editor--update-org-note note scope)
+      (ankiorg--update-org-note note scope)
       (setq i (1+ i))))
   
   (message "Done updating %d org notes from Anki." number-of-notes))
 
 
-(defun anki-editor--update-org-note (note &optional scope)
+(defun ankiorg--update-org-note (note &optional scope)
   "Update the org note corresponding to alist NOTE using data from it.
 Searches for a corresponding org note in SCOPE."
   (save-excursion
-    (anki-editor--goto-org-note-heading note scope)
-    (anki-editor--update-org-note-metadata note)
-    (anki-editor--update-org-note-fields note)))
+    (ankiorg--goto-org-note-heading note scope)
+    (ankiorg--update-org-note-metadata note)
+    (ankiorg--update-org-note-fields note)))
 
 
-(defun anki-editor--goto-org-note-heading (note &optional scope)
+(defun ankiorg--goto-org-note-heading (note &optional scope)
   "Search for org note matching alist-representation given by NOTE in SCOPE.
 And goes to its heading."
   ;; #TODO fix
@@ -566,7 +566,7 @@ And goes to its heading."
 	   (number-to-string (alist-get 'note-id note)))))
 
 
-(defun anki-editor--update-org-note-metadata (note)
+(defun ankiorg--update-org-note-metadata (note)
   "Update the metadata of the org note at point using the data in alist NOTE."
   ;; #TODO updating deck accounting for both property inheritance and
   ;; multiple decks is quite involved - not done yet
@@ -587,7 +587,7 @@ And goes to its heading."
 		   (mapconcat 'identity final-tags " "))))
 
 
-(defun anki-editor--update-org-note-fields (note)
+(defun ankiorg--update-org-note-fields (note)
   "Update the fields of the org note at point using the data in alist NOTE."
 
   ;; remove old note contents
@@ -626,10 +626,10 @@ And goes to its heading."
   (forward-line -1)
   
   ;; insert updated note contents
-  (anki-editor--insert-note-fields-from-alist note))
+  (ankiorg--insert-note-fields-from-alist note))
 
 
-(defun anki-editor--insert-note-fields-from-alist (note)
+(defun ankiorg--insert-note-fields-from-alist (note)
   "Insert the note fields in alist NOTE into the org note at point."
 
   (let ((level (nth 1 (org-heading-components)))
@@ -640,25 +640,15 @@ And goes to its heading."
     (org-demote)
     (insert (car first-field))
     (save-excursion
-      (anki-editor-org-step-into-entry)
+      (ankiorg-org-step-into-entry)
       (insert (cdr first-field)))
     
     (dolist (item other-fields)
       (org-insert-heading '(4))
       (insert (car item))
       (save-excursion
-	(anki-editor-org-step-into-entry)
+	(ankiorg-org-step-into-entry)
 	(insert (cdr item))))))
-
-
-;; ;; old description
-;; "Updates an existing org note using the note with NOTE-ID in Anki.
-;; First calls `anki-editor--pull-note' to download and convert the note into an
-;; alist, then calls `anki-editor--note-html-to-org-with-pandoc' to convert the
-;; note fields to org, navigates to the first matching note id property in
-;; BUFFER, and finally updates the corresponding subtree using values from the
-;; alist, while trying to preserve other org metadata. When BUFFER is not given
-;; it defaults to the current buffer. Note: The deck is not updated."
 
 
 ;; #TODO think of a better way to update notes
@@ -680,22 +670,22 @@ And goes to its heading."
 
 ;; * Function to get and convert notes from Anki
 
-(defun anki-editor-get-convert-notes-from-anki (note-ids &optional deck)
+(defun ankiorg-get-convert-notes-from-anki (note-ids &optional deck)
   "Get notes with note-id in NOTE-IDS from Anki and convert their html to org.
-Just a wrapper that passes on NOTE-IDS to either `anki-editor-sql-get-notes' or
-`anki-editor-ancon-get-notes' depending on the setting of `ankiorg-use-sql-api',
-and then calls `anki-editor--notes-html-to-org-with-pandoc' on what they return.
+Just a wrapper that passes on NOTE-IDS to either `ankiorg-sql-get-notes' or
+`ankiorg-ancon-get-notes' depending on the setting of `ankiorg-use-sql-api',
+and then calls `ankiorg--notes-html-to-org-with-pandoc' on what they return.
 The return value is a list of alists in standard anki-editor format. The idea is
 that alternative functions to get notes from Anki and convert their html could
 be easily added here.
-If DECK is given it is used by `anki-editor-ancon-get-notes'."
+If DECK is given it is used by `ankiorg-ancon-get-notes'."
   
   (setq raw-notes
 	(if ankiorg-use-sql-api
-	    (anki-editor-sql-get-notes note-ids)
-	  (anki-editor-ancon-get-notes note-ids deck)))
+	    (ankiorg-sql-get-notes note-ids)
+	  (ankiorg-ancon-get-notes note-ids deck)))
 
-  (anki-editor--notes-html-to-org-with-pandoc raw-notes))
+  (ankiorg--notes-html-to-org-with-pandoc raw-notes))
 
 
 ;; * Interact with Anki using sqlite3 API
@@ -704,9 +694,9 @@ If DECK is given it is used by `anki-editor-ancon-get-notes'."
 ;; #TODO Why does sqlite-open-readonly sometimes not work?
 ;;       Only works with sqlite-open-readwrite.
 
-;; ** anki-editor-sql-exec-get-alists: general query utility function
+;; ** ankiorg-sql-exec-get-alists: general query utility function
 
-(defun anki-editor-sql-exec-get-alists (query)
+(defun ankiorg-sql-exec-get-alists (query)
   "Execute sqlite3 QUERY (a string) and return results as list of alists.
 Wrapper around `sqlite3-exec'. Runs against the database given in
 `ankiorg-sql-database'."
@@ -733,7 +723,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
     res))
 
 
-;; ** anki-editor-sql-get-ids-in-deck
+;; ** ankiorg-sql-get-ids-in-deck
 
 ;; ;; #TODO create decks table
 ;; ;; Not sure why this was needed, I think in some newer Anki versions
@@ -768,7 +758,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
 ;; ;; #TODO: progn: Database Error: "no such collation sequence: unicase", 1
 ;; (sqlite3-close db)
 
-(defun anki-editor-sql-deck-to-did (deck)
+(defun ankiorg-sql-deck-to-did (deck)
   "Get deck id given DECK."
   (setq res nil)
   (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
@@ -785,7 +775,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
   res)
 
 
-(defun anki-editor-sql-get-ids-in-deck (deck)
+(defun ankiorg-sql-get-ids-in-deck (deck)
   "Return list of all note id's in Anki deck DECK."
   
   (let ((ids-in-anki-deck)
@@ -807,7 +797,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
     ;; (sqlite3-exec db (concat "select id from notes where id in "
     ;; 			     "(select nid from cards where did = "
     ;; 			     (number-to-string
-    ;; 			      (anki-editor-sql-deck-to-did deck))
+    ;; 			      (ankiorg-sql-deck-to-did deck))
     ;; 			     ")")
     ;;               (lambda (ncols row names)
     ;;                 (push (string-to-number (car row)) ids-in-anki-deck)))
@@ -816,9 +806,9 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
     ids-in-anki-deck))
 
 
-;; ** anki-editor-sql-get-ids-in-anki
+;; ** ankiorg-sql-get-ids-in-anki
 
-(defun anki-editor-sql-get-ids-in-anki ()
+(defun ankiorg-sql-get-ids-in-anki ()
   "Return list of all note id's in `ankiorg-sql-database'."
   
   (let ((ids-in-anki)
@@ -832,9 +822,9 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
     ids-in-anki))
 
 
-;; ** anki-editor-sql-get-notes
+;; ** ankiorg-sql-get-notes
 
-(defun anki-editor-sql-get-notes (note-ids)
+(defun ankiorg-sql-get-notes (note-ids)
   "Queries sqlite3 for note data given a list of NOTE-IDS.
 Makes sure that field names are added properly. Returns a list of notes in
 alist format."
@@ -855,7 +845,7 @@ alist format."
 
        ;; #TODO needs to be updated with new Anki db format without decks table
        (setq res
-	     (anki-editor-sql-exec-get-alists
+	     (ankiorg-sql-exec-get-alists
 	      (format
 	       (concat "SELECT notes.id AS 'note-id', mid, notetypes.name AS "
 		       "'note-type', a.deck, trim(tags) AS tags, flds AS fields"
@@ -873,14 +863,14 @@ alist format."
        
        (setq mres
 	     (reverse
-	      (anki-editor-sql-exec-get-alists
+	      (ankiorg-sql-exec-get-alists
 	       (format "select name from fields where ntid = %s order by ord"
 		       (cdr (assoc 'mid (car res)))))))
 
        ;; display warning when note has cards in multiple decks
        (when (> (length (split-string (cdr (assoc 'deck (car res))) "\^_")) 1)
 	 (display-warning
-	  'anki-editor
+	  'ankiorg
 	  (format
 	   (concat "Note with note-id %s has cards in multiple decks. "
 		   "Anki-editor does not handle this properly, hence the deck "
@@ -911,9 +901,9 @@ alist format."
        ))))
 
 
-;; ** anki-editor-sql-pick-deck
+;; ** ankiorg-sql-pick-deck
 
-(defun anki-editor-sql-pick-deck ()
+(defun ankiorg-sql-pick-deck ()
   "Select a deck from the list of decks used in `ankiorg-sql-database'."
   (interactive)
   (setq res nil)
@@ -942,9 +932,9 @@ alist format."
                    (sort res #'string-lessp)))
 
 
-;; ** anki-editor-sql-pick-tag
+;; ** ankiorg-sql-pick-tag
 
-(defun anki-editor-sql-pick-tag ()
+(defun ankiorg-sql-pick-tag ()
   "Select a tag from the list of tags used in `ankiorg-sql-database'."
   (interactive)
   (setq res nil)
@@ -966,7 +956,7 @@ alist format."
 
 ;; * Interact with Anki using Anki-Connect API
 
-(defun anki-editor-ancon-get-notes (note-ids &optional deck)
+(defun ankiorg-ancon-get-notes (note-ids &optional deck)
   "Pulls the notes with note-id in list NOTE-IDS from Anki using AnkiConnect.
 Returns a list of notes in anki-editors alist format.
 If DECK is given it will be used for the deck value, otherwise it is nil."
@@ -988,7 +978,7 @@ If DECK is given it will be used for the deck value, otherwise it is nil."
 	    (note-id (alist-get 'noteId note-raw))
 	    (note-type (alist-get 'modelName note-raw))
 	    (tags (mapconcat 'identity (alist-get 'tags note-raw) " "))
-	    (fields (anki-editor--build-fields-from-anki note-raw))
+	    (fields (ankiorg--build-fields-from-anki note-raw))
 	    (cards (alist-get 'cards note-raw)))
 
 	(push `((note-id . ,note-id)
@@ -1000,7 +990,7 @@ If DECK is given it will be used for the deck value, otherwise it is nil."
 	      notes)))))
 
 
-(defun anki-editor--build-fields-from-anki (response)
+(defun ankiorg--build-fields-from-anki (response)
   "Bring fields returned from Anki into the format used by anki-editor.
 RESPONSE should be what is returned from a note query to Anki-Connect."
   (let ((fields (alist-get 'fields response)))
@@ -1018,7 +1008,7 @@ RESPONSE should be what is returned from a note query to Anki-Connect."
 ;; #TODO move and fix with better docstring
 
 ;; replace non-breaking space with space
-(defcustom anki-editor-pandoc-replacements (list (cons " " ""))
+(defcustom ankiorg-pandoc-replacements (list (cons " " ""))
   "A list of elisp regex pattern-replacement pairs.
 They are applied right after pandoc runs to convert Anki html to org."
   :type 'list
@@ -1026,27 +1016,27 @@ They are applied right after pandoc runs to convert Anki html to org."
 
 ;; replace two and only two backslashes with nothing
 (add-to-list
- 'anki-editor-pandoc-replacements
+ 'ankiorg-pandoc-replacements
  (cons "\\([^\\\\]\\|^\\)\\\\\\\\\\([^\\\\]\\|$\\)" "\\1\\2") t)
 
 ;; replace four and only four backslashes with two backslashes
 (add-to-list
- 'anki-editor-pandoc-replacements
+ 'ankiorg-pandoc-replacements
  (cons "\\([^\\\\]\\|^\\)\\\\\\\\\\\\\\\\\\([^\\\\]\\|$\\)" "\\1\\\\\\\\\\2") t)
 
 ;; remove whitespace at beginning of buffer
 (add-to-list
- 'anki-editor-pandoc-replacements
+ 'ankiorg-pandoc-replacements
  (cons "\\`[ \n\t]+" "") t)
 
 ;; remove whitespace at end of buffer
 (add-to-list
- 'anki-editor-pandoc-replacements
+ 'ankiorg-pandoc-replacements
  (cons "[ \n\t]+\\'" "") t)
 
 ;; risky! attempt to repair invalid html for nested lists produced by
 ;; e.g. the mini-format-pack add-on; seems to work for one level of nesting
-(defcustom anki-editor-anki-replacements
+(defcustom ankiorg-anki-replacements
   (list (cons (concat "</li>\\(<ul>\\([^<]\\|<\\([^uo]\\|u\\([^l]\\|l\\([^>]"
 		      "\\)\\)\\|o\\([^l]\\|l\\([^>]\\)\\)\\)\\)*?</ul>\\)")
 	      "\\1</li>"))
@@ -1057,7 +1047,7 @@ They are applied just before pandoc runs to convert Anki html to org."
 ;; #TODO add the same for </li><ol>
 
 
-(defun anki-editor--notes-html-to-org-with-pandoc (notes-raw)
+(defun ankiorg--notes-html-to-org-with-pandoc (notes-raw)
   "Convert all field values from html to org using pandoc.
 Takes a list NOTES-RAW of notes in anki-editor alist form."
   ;; makes use of a deep copy and setcdr #TODO is this good?
@@ -1070,19 +1060,19 @@ Takes a list NOTES-RAW of notes in anki-editor alist form."
       (setq note (copy-tree note-raw))
       
       (dolist (item (alist-get 'fields note))
-	(setcdr item (anki-editor--html-to-org-with-pandoc (cdr item))))
+	(setcdr item (ankiorg--html-to-org-with-pandoc (cdr item))))
 
       (push note notes))
     notes))
 
 
-(defun anki-editor--html-to-org-with-pandoc (html)
+(defun ankiorg--html-to-org-with-pandoc (html)
   "Take string of HTML and convert it to org with pandoc.
 Requires at least pandoc version >= 1.16.
 Taken from org-web-tools and modified."
   (with-temp-buffer
     (insert html)
-    (anki-editor--clean-anki)
+    (ankiorg--clean-anki)
     (unless (zerop
 	     (call-process-region (point-min) (point-max) "pandoc"
                                   t t nil
@@ -1090,27 +1080,27 @@ Taken from org-web-tools and modified."
                                   "-f" "html-raw_html-native_divs" "-t" "org"))
       ;; #TODO: Add error output, see org-protocol-capture-html
       (error "pandoc failed"))
-    (anki-editor--clean-pandoc-output)
+    (ankiorg--clean-pandoc-output)
     (buffer-string)))
 
 
-(defun anki-editor--clean-pandoc-output ()
+(defun ankiorg--clean-pandoc-output ()
   "Remove unwanted characters from current buffer.
-Bad characters are matched by `anki-editor-pandoc-replacements'.
+Bad characters are matched by `ankiorg-pandoc-replacements'.
 Taken from org-web-tools."
   (save-excursion
-    (cl-loop for (re . replacement) in anki-editor-pandoc-replacements
+    (cl-loop for (re . replacement) in ankiorg-pandoc-replacements
              do (progn
                   (goto-char (point-min))
                   (while (re-search-forward re nil t)
                     (replace-match replacement))))))
 
-(defun anki-editor--clean-anki ()
+(defun ankiorg--clean-anki ()
   "Clean buffer containing html note field from Anki.
-Bad patterns are matched and replaced using `anki-editor-anki-replacements'.
+Bad patterns are matched and replaced using `ankiorg-anki-replacements'.
 Taken from org-web-tools."
   (save-excursion
-    (cl-loop for (re . replacement) in anki-editor-anki-replacements
+    (cl-loop for (re . replacement) in ankiorg-anki-replacements
              do (progn
                   (goto-char (point-min))
                   (while (re-search-forward re nil t)

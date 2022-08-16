@@ -52,6 +52,6 @@ If using the SQL interface, it is strongly recommended that you work with a (rec
 
 =ankiorg-pull-notes= is not a perfect inverse of =anki-editor-push-notes=. The main issue is that some line breaks are not properly preserved. I use a bunch of regex's in the output buffer to correct for most of this. (TODO: Integrate these into the package and fix this better.) 
 
-Also, if you use Anki's [[https://github.com/glutanimate/mini-format-pack][mini-format-pack]] add-on, there is an unfixed [[https://github.com/glutanimate/mini-format-pack/issues/26][bug]] in it which causes pandoc to parse nested lists incorrectly. The default regex replacement in the variable =anki-editor-anki-replacements= should correct for this up to one level of nesting, but not further.
+Also, if you use Anki's [[https://github.com/glutanimate/mini-format-pack][mini-format-pack]] add-on, there is an unfixed [[https://github.com/glutanimate/mini-format-pack/issues/26][bug]] in it which causes pandoc to parse nested lists incorrectly. The default regex replacement in the variable =ankiorg-anki-replacements= should correct for this up to one level of nesting, but not further.
 
 Pull requests, issue reports, and suggestions are most welcome!
