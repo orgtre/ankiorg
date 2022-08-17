@@ -9,7 +9,7 @@ Since I started working on this, [[https://github.com/eyeinsky/org-anki][org-ank
 
 ** Installation
 
-First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], and [[https://pandoc.org][pandoc]]. Make sure pandoc is in the path used by Emacs. Depending on what interface to Anki you want to use, you then need to install a) [[https://github.com/FooSoft/anki-connect][Anki-Connect]] or b) [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]]. 
+First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://github.com/FooSoft/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. To use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]]. (TODO: actually make this optional.)
 
 /Note: Not all versions of Anki/Anki-Connect may work. Things are only known to work with version Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.45][2.1.45]] and Anki-Connect version 22.7.14.0. Some newer versions of Anki may not work with all functions of the sqlite3 interface (TODO)./
 
@@ -17,7 +17,7 @@ Next, you need my fork of anki-editor, [[https://github.com/orgtre/anki-editor][
 
 Finally, you should now have all dependencies and can install this package in whatever way you like.
 
-I use the following to install this package and the necessary Emacs packages with [[https://github.com/radian-software/straight.el][straight.el]]:
+I use the following to install this package and the other necessary Emacs packages with [[https://github.com/radian-software/straight.el][straight.el]]:
 #+begin_src elisp
 (use-package sqlite3
   :straight (:host github :repo "pekingduck/emacs-sqlite3-api"))
@@ -54,4 +54,4 @@ If using the SQL interface, it is strongly recommended that you work with a (rec
 
 Also, if you use Anki's [[https://github.com/glutanimate/mini-format-pack][mini-format-pack]] add-on, there is an unfixed [[https://github.com/glutanimate/mini-format-pack/issues/26][bug]] in it which causes pandoc to parse nested lists incorrectly. The default regex replacement in the variable =ankiorg-anki-replacements= should correct for this up to one level of nesting, but not further.
 
-Pull requests, issue reports, and suggestions are most welcome!
+*Pull requests, issue reports, and suggestions are most welcome! To encourage contributions, I have used the TODO keyword for marking some outstanding tasks both in this readme and the source code.*
