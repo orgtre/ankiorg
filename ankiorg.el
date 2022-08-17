@@ -21,11 +21,13 @@
 ;; ankiorg.el is an add-on to anki-editor.el that adds functionality
 ;; to sync notes from Anki to org, i.e. for pulling notes from Anki.
 
-;; The code distinguishes between three different representations of a "note":
-;; 1. An "Anki note" is the note as it exists within Anki and its sql database,
+;; In this code a distinction is made between three different
+;; representations of a "note":
+;; 1. An "Anki note" is the note as it exists within Anki and its
+;;    sql database,
 ;; 2. an "org note" is the note as it exits in Emacs org-mode, and
-;; 3. a note in "anki-editor alist format" or an "alist note" is an intermediate
-;;    representation of a note as an alist such as:
+;; 3. a note in "anki-editor alist format" or an "alist note" is an
+;;    intermediate representation of a note as an alist such as:
 ;;    '((deck . "Deck name")
 ;;      (note-id . 1612629272499)
 ;;      (note-type . "Note type")
@@ -41,7 +43,7 @@
 
 (require 'json)
 (require 'cl-lib)
-(require 'sqlite3) ;;#TODO several commonly used packages are named like this
+(require 'sqlite3) ; #TODO several commonly used packages are named like this
 (require 'anki-editor)
 
 
@@ -50,20 +52,24 @@
   :group 'anki-editor)
 
 (defcustom ankiorg-use-sql-api t
-  "If non-nil, emacs-sqlite3-api is used to interact with the Anki database.
-This provides direct access to the core SQLite3 C API from Emacs Lisp and
-requires that Anki is not running. If nil, Anki-Connect's HTTP API is used via
-curl, which requires that Anki is running. emacs-sqlite3-api may be faster and
-is more flexible, but Anki-Connect is more stable." ;; #TODO add auto option
+  "If non-nil, interface directly with the Anki SQLite database.
+This uses emacs-sqlite3-api to direct access to the core SQLite3 C API
+from Emacs Lisp and requires that Anki is not running (or that one works
+with a copy of the database).
+If nil, Anki-Connect's HTTP API is used via curl, which requires that
+Anki is running. emacs-sqlite3-api may be faster and is more flexible,
+but Anki-Connect is more stable."
+  ;; #TODO add auto option
   :type 'boolean
   :group 'ankiorg)
 
 (defcustom ankiorg-sql-database nil
   "Path to the Anki SQLite database.
-Please set this to a (recent) copy of the original or at least back it up.
-Currently only absolute paths are supported. The Anki SQLite database is a file
-named 'collection.anki2' at the path where Anki stores user files, see
-URL `https://docs.ankiweb.net/files.html#file-locations'."
+Please set this to a (recent) copy of the original or at least back it
+up. Currently only absolute paths are supported. The Anki SQLite
+database is a file named 'collection.anki2' at the path where Anki
+stores user files, see URL
+`https://docs.ankiweb.net/files.html#file-locations'."
   :type 'string
   :group 'ankiorg)
 
@@ -75,7 +81,7 @@ each call if several different folders are desired."
   :group 'ankiorg)
 
 (defcustom ankiorg-pull-notes-ask-confirmation t
-  "If non-nil the command `ankiorg-pull-notes' will ask for confirmation.
+  "If non-nil, command `ankiorg-pull-notes' will ask for confirmation.
 It also displays a summary of what it thinks it should do when doing so."
   :type 'boolean
   :group 'ankiorg)
@@ -87,144 +93,264 @@ Note headings are created from the contents of the first field."
   :group 'ankiorg)
 
 (defcustom ankiorg-new-from-anki-heading "new-from-anki"
-  "Name of the org heading under which new cards from Anki should be inserted."
+  "The heading under which new cards from Anki should be inserted."
   :type 'string
+  :group 'ankiorg)
+
+(defcustom ankiorg-pick-deck-all-directly nil
+  "If non-nil, `ankiorg-pick-deck' shows all Anki decks directly.
+Otherwise it first only shows deck within its scope."
+  :type 'boolean
+  :group 'ankiorg)
+
+(defcustom ankiorg-org-note-files nil
+  "List of files containing org notes compatible with anki-editor.
+If specified, this can be selected as a value for scope in
+`ankiorg-pull-notes'."
+  :type 'list
   :group 'ankiorg)
 
 
 ;; * Main command to pull notes from Anki to org
 
 ;;;###autoload
-(defun ankiorg-pull-notes (&optional deck scope)
-  "Update notes in the org representation of a DECK by pulling notes from Anki.
+(defun ankiorg-pull-notes (deck &optional scope)
+  "Pull notes from Anki to org.
 
-This does all of the following:
-- deletes notes not existing in Anki (unless they have no note-id assigned yet),
-- creates new entries for notes existing only in Anki, and
-- updates notes already in org using the version in Anki.
+When called interactively, `ankiorg-pick-deck' asks for a DECK,
+and with a prefix argument, `ankiorg-pick-scope' asks for a SCOPE.
 
 SCOPE determines where to look for decks and notes; it is as in
-`org-map-entries', defaulting to current buffer respecting restrictions."
+`org-map-entries', defaulting to current buffer respecting restrictions.
 
-  ;;#TODO refactor
-  
-  (interactive)
+If org notes with `anki-editor-prop-deck' property matching DECK already
+exist within SCOPE, try to update the org representation of DECK in a
+reasonable way by doing all of the following:
 
-  ;; Deck selection
-  
-  ;; If called interactively, pick deck from among decks in scope:
-  (when (called-interactively-p 'any)
-    (setq deck
-	  (completing-read
-	   "Choose a deck: "
-	   (cons "Show all decks in Anki..."
-		 (sort
-		  (ankiorg-org-deck-names scope) #'string-lessp))))
-    (when (equal deck "Show all decks in Anki...")
-      (if ankiorg-use-sql-api
-	  (setq deck (ankiorg-sql-pick-deck))
-	(message "Fetching decks...")
-	(setq deck
-	      (completing-read
-	       "Choose a deck: "
-	       (sort (anki-editor-deck-names) #'string-lessp))))))
-  ;;#TODO fix, seems strange
-  
-  ;; If not called interatively and without deck, complain
-  (when (not (called-interactively-p 'any))
-    (user-error "A deck name is required when calling non-interactively.?"))
-  
+- delete org notes not existing in Anki, unless they have no
+  `anki-editor-prop-note-id' property assigned yet,
+- create new org note entries for notes existing only in Anki, and
+- update org notes already in org using the version in Anki.
 
-  ;; Sorting out which notes should be deleted, created, and updated
+In more detail, there are five actions within Anki between which we need
+to distinguish. Since the last sync, a note has been either
 
-  ;; Five actions within Anki between which we need to distinguish:
-  
-  ;; Since the last sync, a note has been either
-  ;; (a1) moved from the target deck to another deck,
-  ;; (a2) deleted,
-  ;; (b1) moved to the target deck from another deck,
-  ;; (b2) created, or
-  ;; (c)  not changed in any of the above ways.
-
-  ;; Action taken in each case:
-  ;; (a1) => update note in org from Anki, including its deck
-  ;; (a2) => delete note from org
-  ;; (b1) => update note in org from Anki, including its deck
-  ;; (b2) => create note in org
-  ;; (c)  => update note in org from Anki
-
-  ;; #TODO only update notes if modification time in Anki is after modification
-  ;;       time in org?
+(a1) moved from the target deck to another deck
+     => update note in org from Anki, including its deck,
+(a2) deleted
+     => delete note from org, 
+(b1) moved to the target deck from another deck
+     => update note in org from Anki, including its deck,
+(b2) created
+     => create note in org,
+(c)  not changed in any of the above ways
+     => update note in org from Anki."
+  ;; #TODO refactor more
+  ;; #TODO only update notes if modification time in Anki is after 
+  ;;       modification time in org?
   ;; #TODO a note can have cards in several different decks!
   ;;       how does anki-editor handle this?
-  ;; #TODO better if in case (a1) only the deck is updated and nothing else?
+  ;; #TODO better if in case (a1) only the deck is updated and
+  ;;       nothing else?
+  (interactive (list (ankiorg-pick-deck)
+		     (when current-prefix-arg
+		       (ankiorg-pick-scope))))
+  ;; To distinguish the above cases we need the following lists:
+  (let ((ids-in-org-deck (ankiorg-org-note-ids deck scope))
+	(ids-in-org (ankiorg-all-org-note-ids))
+	(ids-in-anki-deck (ankiorg-anki-note-ids deck))
+	(ids-in-anki (ankiorg-anki-note-ids "*")))
 
-  
-  ;; To distinguish these cases we need the following lists:
-  
-  ;; List of note-id's of notes within deck and scope in org
-  (setq ankiorg-ids-in-org-deck
-	(remove
-	 nil
-	 (anki-editor-map-note-entries
-	  (lambda ()
-	    (let ((note-id (car (org--property-local-values
-				 anki-editor-prop-note-id nil))))
-	      (when (not (equal note-id nil))
-		(string-to-number note-id))))
-	  (concat anki-editor-prop-deck "=" "\"" deck "\"")
-	  scope)))
+    (ankiorg--display-warnings ids-in-org-deck ids-in-org
+			       ids-in-anki-deck ids-in-anki)
+    (delete-dups ids-in-org-deck)     
+    ;; Use set operations to get lists of id's for each case we distinguish:
+    ;; a) note id's which are in deck in org but not in deck in Anki
+    (setq ids-deck-org-not-anki
+	  (cl-set-difference ids-in-org-deck ids-in-anki-deck))
+    ;; a1) if in Anki but another deck, assume user changed away from
+    ;;     deck in Anki
+    (setq ids-deck-changed-away
+	  (cl-intersection ids-deck-org-not-anki ids-in-anki))
+    ;; a2) if not in Anki, then assume the note was deleted in Anki
+    (setq ids-deck-deleted
+	  (cl-set-difference ids-deck-org-not-anki ids-in-anki))  
+    ;; b) note id's which are in deck in Anki but not in deck in org
+    (setq ids-deck-anki-not-org
+	  (cl-set-difference ids-in-anki-deck ids-in-org-deck))
+    ;; b1) if in org but another deck, assume user changed to the deck in Anki
+    (setq ids-deck-changed-to
+	  (cl-intersection ids-deck-anki-not-org ids-in-org))
+    ;; b2) if not in org, then assume the note was created in Anki
+    (setq ids-deck-created
+	  (cl-set-difference ids-deck-anki-not-org ids-in-org))
+    ;; c) note id's which are in deck in Anki and in deck in org
+    (setq ids-deck-anki-org
+	  (cl-intersection ids-in-anki-deck ids-in-org-deck))
+    ;; combined list of id's to be updated
+    (setq ids-to-update
+	  (append ids-deck-changed-away
+		  ids-deck-changed-to
+		  ids-deck-anki-org))  
+    ;; Display summary of what will be done and
+    ;; optionally ask for confirmation
+    (let ((summary-message
+	   (format
+	    (concat
+	     "The following changes to deck '%s' will be pulled from Anki:\n\n"
+	     "%d notes moved to another deck -- to be updated in org.\n"
+	     "%d notes deleted -- to be deleted in org.\n"
+	     "%d notes added from another deck -- to be updated in org.\n"
+	     "%d notes created -- to be created in org.\n"
+	     "%d notes unchanged in the above ways -- to be updated in org.\n")
+	    deck
+	    (length ids-deck-changed-away)
+	    (length ids-deck-deleted)
+	    (length ids-deck-changed-to)
+	    (length ids-deck-created)
+	    (length ids-deck-anki-org))))
+      (if ankiorg-pull-notes-ask-confirmation
+	  (when (not (yes-or-no-p (concat summary-message "\nContinue? ")))
+	    (signal 'quit nil))
+	(message summary-message)))
+    ;; Call functions to delete, create, and update notes  
+    (ankiorg-delete-org-notes ids-deck-deleted scope)
+    (ankiorg-create-org-notes ids-deck-created deck)
+    (ankiorg-update-org-notes ids-to-update scope)))
 
-  ;; List of note-id's of all notes within scope in org
-  (setq ankiorg-ids-in-org
-	(remove
-	 nil
-	 (anki-editor-map-note-entries
-	  (lambda ()
-	    (let ((note-id (car (org--property-local-values
-				 anki-editor-prop-note-id nil))))
-	      (when (not (equal note-id nil))
-		(string-to-number note-id))))
-	  nil
-	  scope)))
 
-  ;; List of note-id's of notes within deck in Anki
-  (message "Getting list of note IDs in deck %s from Anki..." deck)
-  (setq ankiorg-ids-in-anki-deck
+
+(defun ankiorg-pick-deck (&optional scope)
+  "Pick a deck with presets based on decks in org.
+
+If `ankiorg-pick-deck-all-directly' is non-nil, presets are populated
+with all values of the `anki-editor-prop-deck' property found within
+SCOPE and an option to 'Show all Anki decks...'. Otherwise all Anki
+decks are shown directly.
+
+If `ankiorg-use-sql-api' is non-nil, the list of all Anki decks is
+fetched by interfacing via SQLite. Else Anki-Connect is used.
+
+SCOPE is as in `org-map-entries', defaulting to current buffer
+respecting restrictions."
+  (let (deck)
+    (unless ankiorg-pick-deck-all-directly
+      (setq deck
+	    (completing-read "Deck: "
+			     (cons "Show all Anki decks..."
+				   (sort (ankiorg-org-deck-names scope)
+					 #'string-lessp)))))
+    (if (or ankiorg-pick-deck-all-directly
+	    (string= deck "Show all Anki decks..."))    
 	(if ankiorg-use-sql-api
-	    (ankiorg-sql-get-ids-in-deck deck)
-	  (anki-editor-api-call-result
-	   'findNotes
-	   :query (concat "deck:" (replace-regexp-in-string " " "_" deck)))))
-  ;; #TODO Replaces spaces in deck name with "_" (read as wildcard character),
-  ;; since otherwise currently not working due to error in Anki/Anki-Connect.
-
-  ;; List of all note-id's in Anki
-  (message "Getting list of all note IDs from Anki...")
-  (setq ankiorg-ids-in-anki
-	(if ankiorg-use-sql-api
-	    (ankiorg-sql-get-ids-in-anki)
-	  (anki-editor-api-call-result
-	   'findNotes
-	   :query "deck:*")))
-  ;; #TODO does this list get too large? (garbage-collect)
-  ;; nah, should easily be able to handle whole Anki SQLite database in memory
+	    (ankiorg-sql-pick-deck)
+	  (ankiorg-ancon-pick-deck))
+      deck)))
 
 
-  ;; Some warnings:
-  
+(defun ankiorg-pick-scope ()
+  "Pick a scope as used by `org-map-entries'.
+When `ankiorg-org-note-files' is non-nil, present it as an alternative."
+  (let ((alternatives '("nil" "tree" "region"
+			"region-start-level" "file" "agenda"))
+	choice)
+    (when ankiorg-org-note-files
+	(setq alternatives (cons "ankiorg-org-note-files" alternatives)))
+    (setq choice (completing-read "Scope: " alternatives))
+    (if (string= choice "ankiorg-org-note-files")
+	ankiorg-org-note-files
+      (intern choice))))
+
+
+(defun ankiorg-org-deck-names (&optional scope)
+  "Get all deck names occuring among org notes in SCOPE.
+Simple wrapper to `anki-editor-map-note-entries' which in turn wrapys
+`org-map-entries'. SCOPE defaults to current buffer respecting
+restrictions."
+  ;; We don't match on anki-editor-prop-deck when calling
+  ;; org-map-entries and specify t, in order to retrieve the property
+  ;; with inheritance. Otherwise org-map-entries misses the deck of
+  ;; notes inheriting from properties at the top of a file
+  ;; (i.e. not under any heading). Also we don't want to match
+  ;; subheadings of a note, which is why we first disable inheritance
+  ;; for the match and then reenable it in org-entry-get.
+  (delete-dups
+   (anki-editor-map-note-entries
+    (lambda () (org-entry-get nil anki-editor-prop-deck t t))
+    nil
+    scope)))
+
+
+(defun ankiorg-ancon-pick-deck ()
+  "Pick a deck with presets fetched via Anki-Connect."
+  (completing-read
+   "Deck: "
+   (sort (anki-editor-deck-names) #'string-lessp)))
+
+
+(defun ankiorg-org-note-ids (deck &optional scope)
+  "Get list of note-ids of notes within DECK and SCOPE in org."
+  ;; See ankiorg-org-deck-names for some explanation.
+  (remove nil
+	  (anki-editor-map-note-entries
+	   (lambda ()
+	     (let ((note-deck (org-entry-get nil anki-editor-prop-deck t t))
+		   node-id)
+	       (setq note-id
+		     (if (string= note-deck deck)
+			 (car (org--property-local-values
+			       anki-editor-prop-note-id nil))
+		       nil))
+	       (when (not (equal note-id nil))
+		 (string-to-number note-id))))
+	   nil
+	   scope)))
+
+
+(defun ankiorg-all-org-note-ids (&optional scope)
+  "Get list of all note-ids of notes within SCOPE in org."
+  ;; See ankiorg-org-deck-names for some explanation.
+  (remove nil
+	  (anki-editor-map-note-entries
+	   (lambda ()
+	     (let ((note-id (car (org--property-local-values
+				  anki-editor-prop-note-id nil))))
+	       (when (not (equal note-id nil))
+		 (string-to-number note-id))))
+	   nil
+	   scope)))
+
+
+(defun ankiorg-anki-note-ids (deck)
+  "Get list of note-ids of notes in DECK in Anki."
+  (if ankiorg-use-sql-api
+      (ankiorg-sql-get-ids-in-deck deck)
+    (ankiorg-ancon-get-ids-in-deck deck)))
+
+
+(defun ankiorg-ancon-get-ids-in-deck (deck)
+  "Get all note-ids in DECK using Anki-Connect."
+  ;; #TODO Replaces spaces in deck name with "_" (read as wildcard
+  ;;       character), since otherwise currently not working due to
+  ;;       error in Anki/Anki-Connect.
+  (anki-editor-api-call-result
+   'findNotes
+   :query (concat "deck:" (replace-regexp-in-string " " "_" deck))))
+
+
+(defun ankiorg--display-warnings (ids-in-org-deck ids-in-org
+						  ids-in-anki-deck ids-in-anki)
+  "Displays warnings."
   ;; Warn if duplicate note-id's in org (within deck and scope)
-  (unless (equal (length ankiorg-ids-in-org-deck)
+  (unless (equal (length ids-in-org-deck)
 		 (length (cl-remove-duplicates
-			  ankiorg-ids-in-org-deck)))
+			  ids-in-org-deck)))
     (display-warning
      'ankiorg
      (concat "Duplicate Anki note IDs detected in org. "
 	     "Only the first one in scope will be updated."))
-    (delete-dups ankiorg-ids-in-org-deck)) ; delete duplicate id's
-  
   ;; Warn if notes with matching deck but no note-id in scope in org
-  (unless (equal (length ankiorg-ids-in-org-deck)
+  (unless (equal (length ids-in-org-deck)
 		 (length (anki-editor-map-note-entries
 			  nil
 			  (concat anki-editor-prop-deck "=" "\"" deck "\"")
@@ -232,92 +358,10 @@ SCOPE determines where to look for decks and notes; it is as in
     (display-warning
      'ankiorg
      (concat "Org notes without note ID found for deck. "
-	     "These have likely been created in org but not synced to Anki yet;"
-	     " they will be ignored.")))
-  
-  
-  ;; Now use set operations to get lists of id's for each case we distinguish:
-  
-  ;; a) note id's which are in deck in org but not in deck in Anki
-  (setq ankiorg-ids-deck-org-not-anki
-	(cl-set-difference ankiorg-ids-in-org-deck
-			   ankiorg-ids-in-anki-deck))
-  ;; a1) if in Anki but another deck, assume user changed away from deck in Anki
-  (setq ankiorg-ids-deck-changed-away
-	(cl-intersection ankiorg-ids-deck-org-not-anki
-			 ankiorg-ids-in-anki))
-  ;; a2) if not in Anki, then assume the note was deleted in Anki
-  (setq ankiorg-ids-deck-deleted
-	(cl-set-difference ankiorg-ids-deck-org-not-anki
-			   ankiorg-ids-in-anki))
-  
-  ;; b) note id's which are in deck in Anki but not in deck in org
-  (setq ankiorg-ids-deck-anki-not-org
-	(cl-set-difference ankiorg-ids-in-anki-deck
-			   ankiorg-ids-in-org-deck))
-  ;; b1) if in org but another deck, assume user changed to the deck in Anki
-  (setq ankiorg-ids-deck-changed-to
-	(cl-intersection ankiorg-ids-deck-anki-not-org
-			 ankiorg-ids-in-org))
-  ;; b2) if not in org, then assume the note was created in Anki
-  (setq ankiorg-ids-deck-created
-	(cl-set-difference ankiorg-ids-deck-anki-not-org
-			   ankiorg-ids-in-org))
+	     "These have likely been created in org but not"
+             "synced to Anki yet;"
+	     " they will be ignored.")))))
 
-  ;; c) note id's which are in deck in Anki and in deck in org
-  (setq ankiorg-ids-deck-anki-org
-	(cl-intersection ankiorg-ids-in-anki-deck
-			 ankiorg-ids-in-org-deck))
-
-
-  ;; combined list of id's to be updated
-  (setq ankiorg-ids-to-update
-	(append ankiorg-ids-deck-changed-away
-		ankiorg-ids-deck-changed-to
-		ankiorg-ids-deck-anki-org))
-
-  
-  ;; Display summary of what will be done and optionally ask for confirmation
-  
-  (let ((summary-message
-	 (format
-	  (concat
-	   "The following changes to deck '%s' will be pulled from Anki:\n\n"
-	   "%d notes moved to another deck -- to be updated in org.\n"
-	   "%d notes deleted -- to be deleted in org.\n"
-	   "%d notes added from another deck -- to be updated in org.\n"
-	   "%d notes created -- to be created in org.\n"
-	   "%d notes unchanged in the above ways -- to be updated in org.\n")
-	  deck
-	  (length ankiorg-ids-deck-changed-away)
-	  (length ankiorg-ids-deck-deleted)
-	  (length ankiorg-ids-deck-changed-to)
-	  (length ankiorg-ids-deck-created)
-	  (length ankiorg-ids-deck-anki-org))))
-
-    (if ankiorg-pull-notes-ask-confirmation
-	(when (not (yes-or-no-p (concat summary-message "\nContinue? ")))
-	  (signal 'quit nil))
-      (message summary-message)))
-
-  
-  ;; Call functions to delete, create, and update notes
-  
-  (ankiorg-delete-org-notes ankiorg-ids-deck-deleted scope)
-  (ankiorg-create-org-notes ankiorg-ids-deck-created deck)
-  (ankiorg-update-org-notes ankiorg-ids-to-update scope))
-
-
-
-(defun ankiorg-org-deck-names (&optional scope)
-  "Get all deck names occuring among anki-editor org notes.
-Simple wrapper to `org-map-entries'. SCOPE defaults to current buffer respecting
-restrictions."
-  (delete-dups
-   (org-map-entries
-    (lambda () (org-entry-get nil anki-editor-prop-deck))
-    (concat anki-editor-prop-deck "<>\"\"")
-    scope)))
 
 
 ;; * Functions to delete, create, and update notes in org
@@ -760,6 +804,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
 
 (defun ankiorg-sql-deck-to-did (deck)
   "Get deck id given DECK."
+  ;; #TODO not working since apparently no decks table
   (setq res nil)
   (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
   (sqlite3-exec db "select decks from col"
@@ -793,7 +838,7 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
                   (lambda (ncols row names)
                     (push (string-to-number (car row)) ids-in-anki-deck)))
 
-    ;; new Anki
+    ;; new Anki #TODO not working since apparently no decks table
     ;; (sqlite3-exec db (concat "select id from notes where id in "
     ;; 			     "(select nid from cards where did = "
     ;; 			     (number-to-string
@@ -1273,4 +1318,5 @@ NOTE should be in anki-editor alist format."
       (org-entry-remove-from-multivalued-property nil "ANKI_TAGS+" tag))))
 
 
+(provide 'ankiorg)
 ;;; ankiorg.el ends here
