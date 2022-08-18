@@ -2,14 +2,14 @@
 
 AnkiOrg is an add-on to Emacs [[https://github.com/louietan/anki-editor][anki-editor]] which can pull notes from [[https://apps.ankiweb.net][Anki]], convert them to anki-editor's org representation of an Anki note, and insert them into an org-mode buffer. It provides two ways of interfacing with Anki: either via [[https://github.com/FooSoft/anki-connect][Anki-Connect]] or by more directly accessing the Anki SQL database using [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]] (this can be faster and works when Anki is not running). The html notes returned by Anki are converted to org using [[https://pandoc.org][pandoc]].
 
-Currently, the code is a mess (TODO), but I've been successfully using this to export all my existing Anki decks to org when migrating to anki-editor. From that moment on I've been managing all my Anki notes from Emacs using anki-editor. It works great! In my Emacs-Anki workflow, I also make use of [[https://github.com/nobiot/org-transclusion][org-transclusion]] for providing card context and [[https://gitlab.com/matsievskiysv/math-preview][math-preview]] for previewing MathJax equations.
+Currently, the code is still a bit messy (TODO), but I've been successfully using this to export all my existing Anki decks to org when migrating to anki-editor. From that moment on I've been managing all my Anki notes from Emacs using anki-editor. It works great! In my Emacs-Anki workflow, I also make use of [[https://github.com/nobiot/org-transclusion][org-transclusion]] for providing card context and [[https://gitlab.com/matsievskiysv/math-preview][math-preview]] for previewing MathJax equations.
 
 Since I started working on this, [[https://github.com/eyeinsky/org-anki][org-anki]] has emerged as a feasible alternative to anki-editor (whose original repository is unmaintained) and the pull features provided in this package. However, org-anki does not provide all the features of anki-editor and AnkiOrg, so this might still be an alternative worth exploring. (TODO: Write more detailed comparison.)
 
 
 ** Installation
 
-First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://github.com/FooSoft/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. To use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]]. (TODO: actually make this optional.)
+First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://github.com/FooSoft/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. Optionally, to use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]].
 
 /Note: Not all versions of Anki/Anki-Connect may work. Versions which have been tested and work include Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.54][2.1.54]] and Anki-Connect version 22.7.14.0./
 
@@ -45,7 +45,7 @@ I use the following to install this package and the other necessary Emacs packag
 
 From an org buffer, run the command =ankiorg-pull-notes= and select the deck you want to pull. (TODO: Write function to pull all decks.) The org representations of the Anki notes will be inserted into the buffer. Next run command =ankiorg-buffer-get-media-files= from the same buffer to get the media files linked in the buffer from Anki and save them to your =ankiorg-media-directory=. (TODO: Make this one call.)
 
-If using the SQL interface, it is strongly recommended that you work with a (recent) copy of your Anki SQL database, whose path needs to be set in =ankiorg-sql-database=. Anki and Anki-Connect need to be running when using the Anki-Connect interface, and (for now) also when retrieving media files. (TODO: Allow retrieving media files via the SQL interface too.) Variable =ankiorg-use-sql-api= controls which interface is used for retrieving notes. (TODO: Write a detailed usage example.)
+To use the SQL interface, enable =ankiorg-sql-minor-mode=. It is strongly recommended that you work with a (recent) copy of your Anki SQL database, whose path needs to be set in =ankiorg-sql-database=. Anki and Anki-Connect need to be running when using the Anki-Connect interface, and (for now) also when retrieving media files. (TODO: Allow retrieving media files via the SQL interface too.) (TODO: Write a detailed usage example.)
 
 
 ** Limitations and known issues
