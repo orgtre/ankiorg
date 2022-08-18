@@ -11,7 +11,7 @@ Since I started working on this, [[https://github.com/eyeinsky/org-anki][org-ank
 
 First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://github.com/FooSoft/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. To use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]]. (TODO: actually make this optional.)
 
-/Note: Not all versions of Anki/Anki-Connect may work. Things are only known to work with version Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.45][2.1.45]] and Anki-Connect version 22.7.14.0. Some newer versions of Anki may not work with all functions of the sqlite3 interface (TODO)./
+/Note: Not all versions of Anki/Anki-Connect may work. Versions which have been tested and work include Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.54][2.1.54]] and Anki-Connect version 22.7.14.0./
 
 Next, you need my fork of anki-editor, [[https://github.com/orgtre/anki-editor][orgtre/anki-editor]]. The difference to the original [[https://github.com/louietan/anki-editor][louietan/anki-editor]] is that I merged the develop branch and made a few minor adjustments (e.g. to allow a more flexible note structure).
 

@@ -744,13 +744,8 @@ If DECK is given it is used by `ankiorg-ancon-get-notes'."
   "Execute sqlite3 QUERY (a string) and return results as list of alists.
 Wrapper around `sqlite3-exec'. Runs against the database given in
 `ankiorg-sql-database'."
-
-  (let ((db)(res))
-
-    (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
-
-    (setq res nil)
-
+  (let ((db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
+	(res))
     (sqlite3-exec db query
                   (lambda (ncols row names)
                     (let ((i 0)
@@ -761,74 +756,18 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
                         )
                       (setq li (reverse li))
                       (push li res)
-                      )))
-    
+                      )))    
     (sqlite3-close db)
     res))
 
 
 ;; ** ankiorg-sql-get-ids-in-deck
 
-;; ;; #TODO create decks table
-;; ;; Not sure why this was needed, I think in some newer Anki versions
-;; ;; there is no decks table in the database anymore!?
-;; (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
-;; (sqlite3-exec
-;;  db
-;;  (concat "CREATE TABLE FIELDS (  ntid integer NOT NULL,  ord integer NOT "
-;; 	 "NULL,  name text NOT NULL COLLATE unicase,  config blob NOT NULL,  "
-;; 	 "PRIMARY KEY (ntid, ord)) "
-;; 	 "without rowid;"
-;; 	 "CREATE UNIQUE INDEX idx_fields_name_ntid ON FIELDS (name, ntid);"
-;; 	 "CREATE TABLE templates (  "
-;; 	 "ntid integer NOT NULL,  ord integer NOT NULL,  "
-;; 	 "name text NOT NULL COLLATE unicase,  mtime_secs integer NOT NULL,  "
-;; 	 "usn integer NOT NULL,  config blob NOT NULL,  "
-;; 	 "PRIMARY KEY (ntid, ord)) without rowid;"
-;; 	 "CREATE UNIQUE INDEX idx_templates_name_ntid ON templates "
-;; 	 "(name, ntid);CREATE INDEX idx_templates_usn ON templates (usn);"
-;; 	 "CREATE TABLE notetypes (  id integer NOT NULL PRIMARY KEY,  "
-;; 	 "name text NOT NULL COLLATE unicase,  mtime_secs integer NOT NULL,  "
-;; 	 "usn integer NOT NULL,  config blob NOT NULL);"
-;; 	 "CREATE UNIQUE INDEX idx_notetypes_name ON notetypes (name);"
-;; 	 "CREATE INDEX idx_notetypes_usn ON notetypes (usn);"
-;; 	 "CREATE TABLE decks (  id integer PRIMARY KEY NOT NULL,  "
-;; 	 "name text NOT NULL COLLATE unicase,  mtime_secs integer NOT NULL,  "
-;; 	 "usn integer NOT NULL,  common blob NOT NULL,  kind blob NOT NULL);"
-;; 	 "CREATE UNIQUE INDEX idx_decks_name ON decks (name);"
-;; 	 "CREATE INDEX idx_notes_mid ON notes (mid);"
-;; 	 "CREATE INDEX idx_cards_odid ON cards (odid)WHERE odid != 0;"
-;; 	 "UPDATE colSET ver = 15;ANALYZE;")
-;; ;; #TODO: progn: Database Error: "no such collation sequence: unicase", 1
-;; (sqlite3-close db)
-
-(defun ankiorg-sql-deck-to-did (deck)
-  "Get deck id given DECK."
-  ;; #TODO not working since apparently no decks table
-  (setq res nil)
-  (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
-  (sqlite3-exec db "select decks from col"
-		(lambda (ncols row names)
-		  (dolist (i (json-read-from-string (nth 0 row)) res)
-		    (if (equal deck (replace-regexp-in-string
-				     "\^_" "::"
-				     (cdr (assoc 'name (cdr i)))))
-			(message "inside if")
-		      (setq res (cdr (assoc 'id (cdr i))))))
-		  ))
-  (sqlite3-close db)
-  res)
-
-
 (defun ankiorg-sql-get-ids-in-deck (deck)
   "Return list of all note id's in Anki deck DECK."
-  
+  ;; #TODO this doesn't get ids of notes in subdecks
   (let ((ids-in-anki-deck)
         (db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite)))
-
-    ;; #TODO fix automatic switch
-    
-    ;; old Anki query
     (sqlite3-exec db (concat "select id from notes where id in "
 			     "(select nid from cards where did = "
 			     "(select id from decks where name like "
@@ -837,16 +776,6 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
 			     "'))")
                   (lambda (ncols row names)
                     (push (string-to-number (car row)) ids-in-anki-deck)))
-
-    ;; new Anki #TODO not working since apparently no decks table
-    ;; (sqlite3-exec db (concat "select id from notes where id in "
-    ;; 			     "(select nid from cards where did = "
-    ;; 			     (number-to-string
-    ;; 			      (ankiorg-sql-deck-to-did deck))
-    ;; 			     ")")
-    ;;               (lambda (ncols row names)
-    ;;                 (push (string-to-number (car row)) ids-in-anki-deck)))
-
     (sqlite3-close db)
     ids-in-anki-deck))
 
@@ -877,18 +806,16 @@ alist format."
   ;; #TODO this runs two sql queries and one loop across fields per note-id --
   ;; might be slow, but how to handle the field names, which are stored on
   ;; multiple rows and whose order matters, otherwise? In MySQL one can specify
-  ;; ORDER BY within group_concat, but SQLite doesn't support this - instead the
-  ;; order of elements returned by group_concat is arbitrary... The ord column
-  ;; could be used for this: GROUP_CONCAT(ord || ':' || name) but this doesn't
-  ;; seem to become faster and less complex than currently.
+  ;; ORDER BY within group_concat, but SQLite doesn't support this
+
+  ;; - instead the order of elements returned by group_concat is arbitrary...
+  ;; The ord column could be used for this: GROUP_CONCAT(ord || ':' || name)
+  ;; but this doesn't seem to become faster and less complex than currently.
   
   (setq
    final
-   (let ((value)(res)(mres)(out))
-     
+   (let ((value)(res)(mres)(out))    
      (dolist (note-id note-ids value)
-
-       ;; #TODO needs to be updated with new Anki db format without decks table
        (setq res
 	     (ankiorg-sql-exec-get-alists
 	      (format
@@ -954,26 +881,14 @@ alist format."
   (setq res nil)
   (setq db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
   (sqlite3-exec db "select id, name from decks"
-		;; #TODO automatic switch depending on version
-		;; for newer Anki versions:
-		;; "select decks from col"
-		;; for older Anki versions:
-		;; "select id, name from decks"
 		(lambda (ncols row names)
-		  ;; for older Anki versions:
 		  (let ((id (car row))
 			(flds (cdr row)))
-		    (push (replace-regexp-in-string "\^_" "::" (car flds)) res))
-		  ;; for newer Anki versions:
-		  ;; (dolist (i (json-read-from-string (nth 0 row)) res)
-		  ;; 	(setq res (cons
-		  ;; 		     (replace-regexp-in-string
-		  ;; 		      "\^_" "::"
-		  ;; 		      (cdr (assoc 'name (cdr i))))
-		  ;; 		     res)))
-		  ))
+		    (push (replace-regexp-in-string
+			   "\^_" "::" (car flds))
+			  res))))
   (sqlite3-close db)
-  (completing-read "Choose a deck: "
+  (completing-read "Deck: "
                    (sort res #'string-lessp)))
 
 
