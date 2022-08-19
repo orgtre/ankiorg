@@ -96,16 +96,15 @@ Wrapper around `sqlite3-exec'. Runs against the database given in
 (defun ankiorg-sql-note-ids (&optional deck)
   "Return list of all note-id's in Anki.
 If DECK is non-nil, return only note-id's in DECK."
-  ;; #TODO this doesn't get ids of notes in subdecks
   (let ((db (sqlite3-open ankiorg-sql-database sqlite-open-readwrite))
+	;; the 'or' is used to also match subdecks
 	(query (if deck
-		   (concat "select id from notes where id in "
-			   "(select nid from cards where did = "
-			   "(select id from decks where name like "
-			   "'"
-			   (replace-regexp-in-string "::" "\x1f" deck)
-			   "'"
-			   "))")
+		   (let ((deck (replace-regexp-in-string "::" "" deck)))
+		     (format
+		      "pragma case_sensitive_like=on;
+		      select distinct nid from cards where did in
+                      (select id from decks where name like
+                      '%s' or name like '%s%%')" deck deck))
 		 "select distinct nid from cards"))
 	(ids-in-anki))
     (sqlite3-exec db query
