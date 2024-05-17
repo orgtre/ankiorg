@@ -604,7 +604,7 @@ And goes to its heading."
   (let* ((tags
 	  (split-string (alist-get 'tags note)))
 	 (existing-tags
-	  (split-string (org-entry-get nil anki-editor-prop-tags)))
+	  (split-string (or (org-entry-get nil anki-editor-prop-tags) "")))
 	 (tags-to-keep
 	  (-intersection (-difference existing-tags tags)
 			 anki-editor-ignored-org-tags))
