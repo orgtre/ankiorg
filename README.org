@@ -1,6 +1,6 @@
 * AnkiOrg
 
-AnkiOrg is an add-on to Emacs [[https://github.com/louietan/anki-editor][anki-editor]] which can pull notes from [[https://apps.ankiweb.net][Anki]], convert them to anki-editor's org representation of an Anki note, and insert them into an org-mode buffer. It provides two ways of interfacing with Anki: either via [[https://github.com/FooSoft/anki-connect][Anki-Connect]] or by more directly accessing the Anki SQL database using [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]] (this can be faster and works when Anki is not running). The html notes returned by Anki are converted to org using [[https://pandoc.org][pandoc]].
+AnkiOrg is an add-on to Emacs [[https://github.com/anki-editor/anki-editor][anki-editor]] which can pull notes from [[https://apps.ankiweb.net][Anki]], convert them to anki-editor's org representation of an Anki note, and insert them into an org-mode buffer. It provides two ways of interfacing with Anki: either via [[https://git.foosoft.net/alex/anki-connect][Anki-Connect]] or by more directly accessing the Anki SQL database using [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]] (this can be faster and works when Anki is not running). The html notes returned by Anki are converted to org using [[https://pandoc.org][pandoc]].
 
 Currently, the code is still a bit messy (TODO), but I've been successfully using this to export all my existing Anki decks to org when migrating to anki-editor. From that moment on I've been managing all my Anki notes from Emacs using anki-editor. It works great! In my Emacs-Anki workflow, I also make use of [[https://github.com/nobiot/org-transclusion][org-transclusion]] for providing card context and [[https://gitlab.com/matsievskiysv/math-preview][math-preview]] for previewing MathJax equations.
 
@@ -9,11 +9,11 @@ Since I started working on this, [[https://github.com/eyeinsky/org-anki][org-ank
 
 ** Installation
 
-First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://github.com/FooSoft/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. Optionally, to use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]].
+First install the following dependencies outside Emacs: [[https://www.gnu.org/software/emacs/][Emacs]], [[https://apps.ankiweb.net][Anki]], [[https://git.foosoft.net/alex/anki-connect][Anki-Connect]], [[https://curl.se][curl]], and [[https://pandoc.org][pandoc]]. Make sure curl and pandoc are in the path used by Emacs. Optionally, to use the SQLite interface you also need [[https://github.com/pekingduck/emacs-sqlite3-api][emacs-sqlite3-api]].
 
-/Note: Not all versions of Anki/Anki-Connect may work. Versions which have been tested and work include Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.54][2.1.54]] and Anki-Connect version 22.7.14.0./
+/Note: Not all versions of Anki/Anki-Connect may work. Versions which have been tested and work include Anki version [[https://github.com/ankitects/anki/releases/tag/2.1.54][2.1.54]] and [[https://github.com/ankitects/anki/releases/tag/24.04.1][24.04.1]], and Anki-Connect version 22.7.14.0 and 24.2.26.0./
 
-Next, you need my fork of anki-editor, [[https://github.com/orgtre/anki-editor][orgtre/anki-editor]]. The difference to the original [[https://github.com/louietan/anki-editor][louietan/anki-editor]] is that I merged the develop branch and made a few minor adjustments (e.g. to allow a more flexible note structure).
+Next, install the latest version of anki-editor, [[https://github.com/anki-editor/anki-editor][anki-editor/anki-editor]]. (The original repository [[https://github.com/louietan/anki-editor][louietan/anki-editor]] is not maintained anymore.)
 
 Finally, you should now have all dependencies and can install this package in whatever way you like.
 
@@ -23,16 +23,10 @@ I use the following to install this package and the other necessary Emacs packag
   :straight (:host github :repo "pekingduck/emacs-sqlite3-api"))
 
 (use-package anki-editor  
-  :straight (:host github :repo "orgtre/anki-editor")
-  :commands anki-editor-mode
-  :custom (anki-editor-latex-style 'mathjax))
+  :straight (:host github :repo "anki-editor/anki-editor"))
 
 (use-package ankiorg
   :straight (:host github :repo "orgtre/ankiorg")
-  :commands
-  ankiorg-pull-notes
-  ankiorg-buffer-get-media-files
-  ankiorg-pull-tags
   :custom
   (ankiorg-sql-database
    "my-path-to/collection.anki2")
@@ -52,6 +46,6 @@ To use the SQL interface, enable =ankiorg-sql-minor-mode=. It is strongly recomm
 
 =ankiorg-pull-notes= is not a perfect inverse of =anki-editor-push-notes=. The main issue is that some line breaks are not properly preserved. I use a bunch of regex's in the output buffer to correct for most of this. (TODO: Integrate these into the package and fix this better.) 
 
-Also, if you use Anki's [[https://github.com/glutanimate/mini-format-pack][mini-format-pack]] add-on, there is an unfixed [[https://github.com/glutanimate/mini-format-pack/issues/26][bug]] in it which causes pandoc to parse nested lists incorrectly. The default regex replacement in the variable =ankiorg-anki-replacements= should correct for this up to one level of nesting, but not further.
+Also, if you use Anki's buttons for creating nested lists (via the insert list and indent buttons), there is an unfixed Anki [[https://github.com/ankitects/anki/issues/2021][bug]] which causes pandoc to parse nested lists incorrectly. The default regex replacement in the variable =ankiorg-anki-replacements= should correct for this up to one level of nesting, but not further.
 
 *Pull requests, issue reports, and suggestions are most welcome! To encourage contributions, I have used the TODO keyword for marking some outstanding tasks both in this readme and the source code.*
