@@ -792,6 +792,11 @@ They are applied right after pandoc runs to convert Anki html to org."
  'ankiorg-pandoc-replacements
  (cons "[ \n\t]+\\'" "") t)
 
+;; replace [sound:x] with file:x
+(add-to-list
+ 'ankiorg-pandoc-replacements
+ (cons "\\[sound:\\(.*\\)\\]" "file:\\1") t)
+
 ;; risky! attempt to repair invalid html for nested lists produced by
 ;; e.g. the mini-format-pack add-on; seems to work for one level of nesting
 (defcustom ankiorg-anki-replacements
